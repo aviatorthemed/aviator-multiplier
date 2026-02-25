@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['Orbitron', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +61,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        game: {
+          success: "hsl(var(--game-success))",
+          "success-foreground": "hsl(var(--game-success-foreground))",
+          danger: "hsl(var(--game-danger))",
+          "danger-foreground": "hsl(var(--game-danger-foreground))",
+          amber: "hsl(var(--game-amber))",
+          "amber-glow": "hsl(var(--game-amber-glow))",
+          cockpit: "hsl(var(--game-cockpit))",
+          "cockpit-border": "hsl(var(--game-cockpit-border))",
+          multiplier: "hsl(var(--game-multiplier))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,20 +80,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {
