@@ -1,1 +1,4 @@
 project_id = "jskbuvmieeqcykixxkwx"
+
+[functions.save-round]
+verify_jwt = false

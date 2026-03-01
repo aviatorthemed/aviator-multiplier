@@ -14,7 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      game_rounds: {
+        Row: {
+          crash_multiplier: number
+          created_at: string
+          id: number
+        }
+        Insert: {
+          crash_multiplier: number
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          crash_multiplier?: number
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
