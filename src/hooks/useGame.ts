@@ -59,52 +59,31 @@ export function useGame() {
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const countdownRef = useRef<ReturnType<typeof setInterval>>();
   const roundIdRef = useRef(11);
+  const startCountdownRef = useRef<() => void>();
 
-  const startCountdown = useCallback(() => {
-    setCrashPoint(nextCrashPoint);
-    setNextCrashPoint(generateCrashPoint());
-    setPhase('countdown');
-    setCountdown(10);
-    setCurrentMultiplier(1.00);
-    setBets(generateFakeBets());
-    setPlayerBet(null);
-
-    let c = 10;
-    countdownRef.current = setInterval(() => {
-      c--;
-      setCountdown(c);
-      if (c <= 0) {
-        clearInterval(countdownRef.current);
-        startFlying();
-      }
-    }, 1000);
-  }, [nextCrashPoint]);
-
-  const startFlying = useCallback(() => {
+  const startFlying = useCallback((cp: number) => {
     setPhase('flying');
     let mult = 1.00;
-    const speed = 50; // ms
+    const speed = 50;
 
     intervalRef.current = setInterval(() => {
-      // Exponential-ish growth
-      const increment = 0.01 + mult * 0.003;
-      mult = +(mult + increment).toFixed(2);
-      setCurrentMultiplier(mult);
+      try {
+        const increment = 0.01 + mult * 0.003;
+        mult = +(mult + increment).toFixed(2);
+        setCurrentMultiplier(mult);
 
-      // Random bot cashouts
-      setBets(prev => prev.map(b => {
-        if (!b.cashedOut && Math.random() < 0.02) {
-          return { ...b, cashedOut: true, cashOutMultiplier: mult, profit: Math.floor(b.amount * mult - b.amount) };
-        }
-        return b;
-      }));
+        // Random bot cashouts
+        setBets(prev => prev.map(b => {
+          if (!b.cashedOut && Math.random() < 0.02) {
+            return { ...b, cashedOut: true, cashOutMultiplier: mult, profit: Math.floor(b.amount * mult - b.amount) };
+          }
+          return b;
+        }));
 
-      setCrashPoint(cp => {
         if (mult >= cp) {
           clearInterval(intervalRef.current);
           setPhase('crashed');
 
-          // Auto-lose player bet if not cashed out
           setPlayerBet(prev => {
             if (prev && !prev.cashedOut) {
               return { ...prev, cashedOut: false };
@@ -118,15 +97,41 @@ export function useGame() {
             timestamp: new Date(),
           }, ...prev].slice(0, 20));
 
-          // Auto restart after 3 seconds
           setTimeout(() => {
-            startCountdown();
+            startCountdownRef.current?.();
           }, 3000);
         }
-        return cp;
-      });
+      } catch (error) {
+        console.error('Game loop error:', error);
+        clearInterval(intervalRef.current);
+      }
     }, speed);
   }, []);
+
+  const startCountdown = useCallback(() => {
+    const newCrashPoint = generateCrashPoint();
+    const upcomingCrashPoint = generateCrashPoint();
+    setCrashPoint(newCrashPoint);
+    setNextCrashPoint(upcomingCrashPoint);
+    setPhase('countdown');
+    setCountdown(10);
+    setCurrentMultiplier(1.00);
+    setBets(generateFakeBets());
+    setPlayerBet(null);
+
+    let c = 10;
+    countdownRef.current = setInterval(() => {
+      c--;
+      setCountdown(c);
+      if (c <= 0) {
+        clearInterval(countdownRef.current);
+        startFlying(newCrashPoint);
+      }
+    }, 1000);
+  }, [startFlying]);
+
+  // Keep ref in sync
+  startCountdownRef.current = startCountdown;
 
   const placeBet = useCallback((amount: number) => {
     if (phase !== 'countdown' || playerBet) return;
