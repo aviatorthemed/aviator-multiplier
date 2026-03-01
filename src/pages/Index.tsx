@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useGame } from '@/hooks/useGame';
+import { useGameContext } from '@/contexts/GameContext';
 import { useAuth } from '@/hooks/useAuth';
 import MultiplierDisplay from '@/components/game/MultiplierDisplay';
 import BetPanel from '@/components/game/BetPanel';
@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 type Tab = 'game' | 'wallet' | 'referrals';
 
 const Index = () => {
-  const { phase, countdown, currentMultiplier, crashPoint, history, bets, playerBet, balance, placeBet, cashOut } = useGame();
+  const { phase, countdown, currentMultiplier, crashPoint, history, bets, playerBet, balance, placeBet, cashOut } = useGameContext();
   const auth = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('game');
 
