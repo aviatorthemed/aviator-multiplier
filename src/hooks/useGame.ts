@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export type GamePhase = 'waiting' | 'countdown' | 'flying' | 'crashed';
 
@@ -20,12 +21,11 @@ export interface RoundResult {
 const FAKE_PLAYERS = ['Alex K.', 'Mary W.', 'John M.', 'Grace N.', 'Peter O.', 'Faith J.', 'David K.', 'Sarah L.'];
 
 function generateCrashPoint(): number {
-  // Weighted random: mostly 1.0-3.0 with occasional high multipliers
   const r = Math.random();
-  if (r < 0.02) return +(Math.random() * 90 + 10).toFixed(2); // 2% chance: 10x-100x
-  if (r < 0.1) return +(Math.random() * 7 + 3).toFixed(2);   // 8% chance: 3x-10x
-  if (r < 0.4) return +(Math.random() * 1.5 + 1.5).toFixed(2); // 30% chance: 1.5x-3x
-  return +(Math.random() * 0.5 + 1.0).toFixed(2);              // 60% chance: 1.0x-1.5x
+  if (r < 0.02) return +(Math.random() * 90 + 10).toFixed(2);
+  if (r < 0.1) return +(Math.random() * 7 + 3).toFixed(2);
+  if (r < 0.4) return +(Math.random() * 1.5 + 1.5).toFixed(2);
+  return +(Math.random() * 0.5 + 1.0).toFixed(2);
 }
 
 function generateFakeBets(): Bet[] {
@@ -39,19 +39,42 @@ function generateFakeBets(): Bet[] {
   }));
 }
 
+async function saveRoundToDb(crashMultiplier: number) {
+  try {
+    await supabase.functions.invoke('save-round', {
+      body: { crash_multiplier: crashMultiplier },
+    });
+  } catch (err) {
+    console.error('Failed to save round:', err);
+  }
+}
+
+async function fetchHistoryFromDb(): Promise<RoundResult[]> {
+  try {
+    const { data, error } = await supabase
+      .from('game_rounds')
+      .select('id, crash_multiplier, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error || !data) return [];
+    return data.map((r: any) => ({
+      id: r.id,
+      crashMultiplier: Number(r.crash_multiplier),
+      timestamp: new Date(r.created_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export function useGame() {
   const [phase, setPhase] = useState<GamePhase>('waiting');
   const [countdown, setCountdown] = useState(10);
   const [currentMultiplier, setCurrentMultiplier] = useState(1.00);
   const [crashPoint, setCrashPoint] = useState(0);
   const [nextCrashPoint, setNextCrashPoint] = useState(() => generateCrashPoint());
-  const [history, setHistory] = useState<RoundResult[]>(() => {
-    return Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1,
-      crashMultiplier: generateCrashPoint(),
-      timestamp: new Date(Date.now() - (10 - i) * 30000),
-    }));
-  });
+  const [history, setHistory] = useState<RoundResult[]>([]);
   const [bets, setBets] = useState<Bet[]>([]);
   const [playerBet, setPlayerBet] = useState<Bet | null>(null);
   const [balance, setBalance] = useState(10000);
@@ -60,6 +83,51 @@ export function useGame() {
   const countdownRef = useRef<ReturnType<typeof setInterval>>();
   const roundIdRef = useRef(11);
   const startCountdownRef = useRef<() => void>();
+
+  // Fetch history from DB on mount
+  useEffect(() => {
+    fetchHistoryFromDb().then(dbHistory => {
+      if (dbHistory.length > 0) {
+        setHistory(dbHistory);
+        roundIdRef.current = dbHistory[0].id + 1;
+      } else {
+        // Seed with generated history if DB is empty
+        const seeded = Array.from({ length: 10 }, (_, i) => ({
+          id: i + 1,
+          crashMultiplier: generateCrashPoint(),
+          timestamp: new Date(Date.now() - (10 - i) * 30000),
+        }));
+        setHistory(seeded);
+      }
+    });
+  }, []);
+
+  // Subscribe to realtime inserts on game_rounds
+  useEffect(() => {
+    const channel = supabase
+      .channel('game_rounds_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'game_rounds' },
+        (payload: any) => {
+          const newRound: RoundResult = {
+            id: payload.new.id,
+            crashMultiplier: Number(payload.new.crash_multiplier),
+            timestamp: new Date(payload.new.created_at),
+          };
+          setHistory(prev => {
+            // Avoid duplicates
+            if (prev.some(r => r.id === newRound.id)) return prev;
+            return [newRound, ...prev].slice(0, 20);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const startFlying = useCallback((cp: number) => {
     setPhase('flying');
@@ -72,7 +140,6 @@ export function useGame() {
         mult = +(mult + increment).toFixed(2);
         setCurrentMultiplier(mult);
 
-        // Random bot cashouts
         setBets(prev => prev.map(b => {
           if (!b.cashedOut && Math.random() < 0.02) {
             return { ...b, cashedOut: true, cashOutMultiplier: mult, profit: Math.floor(b.amount * mult - b.amount) };
@@ -91,11 +158,8 @@ export function useGame() {
             return prev;
           });
 
-          setHistory(prev => [{
-            id: roundIdRef.current++,
-            crashMultiplier: cp,
-            timestamp: new Date(),
-          }, ...prev].slice(0, 20));
+          // Save to DB (this also triggers realtime for all clients)
+          saveRoundToDb(cp);
 
           setTimeout(() => {
             startCountdownRef.current?.();
@@ -130,7 +194,6 @@ export function useGame() {
     }, 1000);
   }, [startFlying]);
 
-  // Keep ref in sync
   startCountdownRef.current = startCountdown;
 
   const placeBet = useCallback((amount: number) => {
@@ -161,7 +224,6 @@ export function useGame() {
     setBets(prev => prev.map(b => b.id === playerBet.id ? updatedBet : b));
   }, [phase, playerBet, currentMultiplier]);
 
-  // Auto-start on mount
   useEffect(() => {
     startCountdown();
     return () => {
