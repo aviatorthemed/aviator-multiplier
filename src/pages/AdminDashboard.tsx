@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGame } from '@/hooks/useGame';
+import { useGameContext } from '@/contexts/GameContext';
 import MultiplierDisplay from '@/components/game/MultiplierDisplay';
 import GameHistory from '@/components/game/GameHistory';
 import LiveBets from '@/components/game/LiveBets';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { phase, countdown, currentMultiplier, crashPoint, nextCrashPoint, history, bets } = useGame();
+  const { phase, countdown, currentMultiplier, crashPoint, nextCrashPoint, history, bets } = useGameContext();
 
   useEffect(() => {
     if (sessionStorage.getItem('adminAuth') !== 'true') {
