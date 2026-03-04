@@ -21,26 +21,25 @@ export interface RoundResult {
 const FAKE_PLAYERS = ['Alex K.', 'Mary W.', 'John M.', 'Grace N.', 'Peter O.', 'Faith J.', 'David K.', 'Sarah L.'];
 
 let roundsSinceLastBig = 0;
-const BIG_MULTIPLIER_MIN_ROUNDS = 50;
-const BIG_MULTIPLIER_MAX_ROUNDS = 100;
-let nextBigRoundAt = Math.floor(Math.random() * (BIG_MULTIPLIER_MAX_ROUNDS - BIG_MULTIPLIER_MIN_ROUNDS)) + BIG_MULTIPLIER_MIN_ROUNDS;
+const BIG_MULTIPLIER_MIN_ROUNDS = 30;
+const BIG_MULTIPLIER_MAX_ROUNDS = 60;
+let nextBigRoundAt = Math.floor(Math.random() * (BIG_MULTIPLIER_MAX_ROUNDS - BIG_MULTIPLIER_MIN_ROUNDS + 1)) + BIG_MULTIPLIER_MIN_ROUNDS;
 
 function generateCrashPoint(): number {
   roundsSinceLastBig++;
-  
-  // Force a big multiplier after 50-100 rounds
+
+  // Force a big multiplier more frequently (every 30-60 rounds)
   if (roundsSinceLastBig >= nextBigRoundAt) {
     roundsSinceLastBig = 0;
-    nextBigRoundAt = Math.floor(Math.random() * (BIG_MULTIPLIER_MAX_ROUNDS - BIG_MULTIPLIER_MIN_ROUNDS)) + BIG_MULTIPLIER_MIN_ROUNDS;
-    // Big multiplier: 10x - 100x
-    return +(Math.random() * 90 + 10).toFixed(2);
+    nextBigRoundAt = Math.floor(Math.random() * (BIG_MULTIPLIER_MAX_ROUNDS - BIG_MULTIPLIER_MIN_ROUNDS + 1)) + BIG_MULTIPLIER_MIN_ROUNDS;
+    return +(Math.random() * 140 + 10).toFixed(2); // 10x - 150x
   }
-  
+
   const r = Math.random();
-  if (r < 0.02) return +(Math.random() * 90 + 10).toFixed(2);
-  if (r < 0.1) return +(Math.random() * 7 + 3).toFixed(2);
-  if (r < 0.4) return +(Math.random() * 1.5 + 1.5).toFixed(2);
-  return +(Math.random() * 0.5 + 1.0).toFixed(2);
+  if (r < 0.05) return +(Math.random() * 60 + 5).toFixed(2); // More high multipliers
+  if (r < 0.15) return +(Math.random() * 10 + 2).toFixed(2);
+  if (r < 0.45) return +(Math.random() * 2 + 1.3).toFixed(2);
+  return +(Math.random() * 0.6 + 1.0).toFixed(2);
 }
 
 function generateFakeBets(): Bet[] {
@@ -189,9 +188,9 @@ export function useGame() {
 
   const startCountdown = useCallback(() => {
     const newCrashPoint = generateCrashPoint();
-    const upcomingCrashPoint = generateCrashPoint();
     setCrashPoint(newCrashPoint);
-    setNextCrashPoint(upcomingCrashPoint);
+    // Admin forecast should match actual current-round outcome
+    setNextCrashPoint(newCrashPoint);
     setPhase('countdown');
     setCountdown(10);
     setCurrentMultiplier(1.00);
