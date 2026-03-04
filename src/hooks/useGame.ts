@@ -180,7 +180,18 @@ export function useGame() {
             return prev;
           });
 
-          // Save to DB (this also triggers realtime for all clients)
+          // Optimistic local history update so crash point matches immediately
+          const roundId = Date.now();
+          setHistory(prev => {
+            const newRound: RoundResult = {
+              id: roundId,
+              crashMultiplier: cp,
+              timestamp: new Date(),
+            };
+            return [newRound, ...prev].slice(0, 20);
+          });
+
+          // Save to DB (realtime will deduplicate via id check)
           saveRoundToDb(cp);
 
           setTimeout(() => {
