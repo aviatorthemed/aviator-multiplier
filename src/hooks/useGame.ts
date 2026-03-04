@@ -20,7 +20,22 @@ export interface RoundResult {
 
 const FAKE_PLAYERS = ['Alex K.', 'Mary W.', 'John M.', 'Grace N.', 'Peter O.', 'Faith J.', 'David K.', 'Sarah L.'];
 
+let roundsSinceLastBig = 0;
+const BIG_MULTIPLIER_MIN_ROUNDS = 50;
+const BIG_MULTIPLIER_MAX_ROUNDS = 100;
+let nextBigRoundAt = Math.floor(Math.random() * (BIG_MULTIPLIER_MAX_ROUNDS - BIG_MULTIPLIER_MIN_ROUNDS)) + BIG_MULTIPLIER_MIN_ROUNDS;
+
 function generateCrashPoint(): number {
+  roundsSinceLastBig++;
+  
+  // Force a big multiplier after 50-100 rounds
+  if (roundsSinceLastBig >= nextBigRoundAt) {
+    roundsSinceLastBig = 0;
+    nextBigRoundAt = Math.floor(Math.random() * (BIG_MULTIPLIER_MAX_ROUNDS - BIG_MULTIPLIER_MIN_ROUNDS)) + BIG_MULTIPLIER_MIN_ROUNDS;
+    // Big multiplier: 10x - 100x
+    return +(Math.random() * 90 + 10).toFixed(2);
+  }
+  
   const r = Math.random();
   if (r < 0.02) return +(Math.random() * 90 + 10).toFixed(2);
   if (r < 0.1) return +(Math.random() * 7 + 3).toFixed(2);
