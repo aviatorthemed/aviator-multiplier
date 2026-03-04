@@ -144,25 +144,33 @@ export function useGame() {
   }, []);
 
   const startFlying = useCallback((cp: number) => {
+    // Clear any existing interval before starting a new one
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     setPhase('flying');
     let mult = 1.00;
+    let hasCrashed = false;
     const speed = 50;
 
     intervalRef.current = setInterval(() => {
+      // Guard: stop immediately if already crashed
+      if (hasCrashed) {
+        clearInterval(intervalRef.current);
+        return;
+      }
+
       try {
         const increment = 0.01 + mult * 0.003;
         mult = +(mult + increment).toFixed(2);
-        setCurrentMultiplier(mult);
 
-        setBets(prev => prev.map(b => {
-          if (!b.cashedOut && Math.random() < 0.02) {
-            return { ...b, cashedOut: true, cashOutMultiplier: mult, profit: Math.floor(b.amount * mult - b.amount) };
-          }
-          return b;
-        }));
-
+        // Check crash BEFORE updating UI to prevent overshoot
         if (mult >= cp) {
+          hasCrashed = true;
           clearInterval(intervalRef.current);
+          intervalRef.current = undefined;
+          setCurrentMultiplier(cp);
           setPhase('crashed');
 
           setPlayerBet(prev => {
@@ -178,15 +186,36 @@ export function useGame() {
           setTimeout(() => {
             startCountdownRef.current?.();
           }, 3000);
+          return;
         }
+
+        setCurrentMultiplier(mult);
+
+        setBets(prev => prev.map(b => {
+          if (!b.cashedOut && Math.random() < 0.02) {
+            return { ...b, cashedOut: true, cashOutMultiplier: mult, profit: Math.floor(b.amount * mult - b.amount) };
+          }
+          return b;
+        }));
       } catch (error) {
         console.error('Game loop error:', error);
         clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
       }
     }, speed);
   }, []);
 
   const startCountdown = useCallback(() => {
+    // Clear any existing timers
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = undefined;
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = undefined;
+    }
+
     const newCrashPoint = generateCrashPoint();
     setCrashPoint(newCrashPoint);
     // Admin forecast should match actual current-round outcome
@@ -203,6 +232,7 @@ export function useGame() {
       setCountdown(c);
       if (c <= 0) {
         clearInterval(countdownRef.current);
+        countdownRef.current = undefined;
         startFlying(newCrashPoint);
       }
     }, 1000);
