@@ -17,12 +17,17 @@ const Index = () => {
   const { phase, countdown, currentMultiplier, crashPoint, history, bets, playerBet, balance, placeBet, cashOut } = useGameContext();
   const auth = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('game');
+  const [showAuth, setShowAuth] = useState(false);
 
   // Sync game balance with auth balance
   const effectiveBalance = auth.isLoggedIn ? auth.currentUser!.balance : balance;
 
   // Wrap placeBet and cashOut to update auth balance
   const handlePlaceBet = (amount: number) => {
+    if (!auth.isLoggedIn) {
+      setShowAuth(true);
+      return;
+    }
     placeBet(amount);
     if (auth.isLoggedIn) {
       auth.updateBalance(auth.currentUser!.balance - amount);
@@ -37,8 +42,8 @@ const Index = () => {
     }
   };
 
-  if (!auth.isLoggedIn) {
-    return <AuthScreen onLogin={auth.login} onSignup={auth.signup} />;
+  if (showAuth && !auth.isLoggedIn) {
+    return <AuthScreen onLogin={(u, p) => { const r = auth.login(u, p); if (r.success) setShowAuth(false); return r; }} onSignup={(u, ph, pw, ref) => { const r = auth.signup(u, ph, pw, ref); if (r.success) setShowAuth(false); return r; }} />;
   }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -56,15 +61,23 @@ const Index = () => {
           <h1 className="font-display text-lg font-bold text-primary">AVIATOR</h1>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            Hi, <span className="text-primary font-semibold">{auth.currentUser!.username}</span>
-          </span>
-          <span className="text-xs font-semibold text-primary">
-            KSh {effectiveBalance.toLocaleString()}
-          </span>
-          <button onClick={auth.logout} className="text-muted-foreground hover:text-game-danger transition-colors">
-            <LogOut className="w-4 h-4" />
-          </button>
+          {auth.isLoggedIn ? (
+            <>
+              <span className="text-xs text-muted-foreground">
+                Hi, <span className="text-primary font-semibold">{auth.currentUser!.username}</span>
+              </span>
+              <span className="text-xs font-semibold text-primary">
+                KSh {effectiveBalance.toLocaleString()}
+              </span>
+              <button onClick={auth.logout} className="text-muted-foreground hover:text-game-danger transition-colors">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setShowAuth(true)} className="text-xs font-display font-bold bg-primary text-primary-foreground px-3 py-1.5 rounded-lg">
+              LOGIN
+            </button>
+          )}
           <Link to="/admin/login" className="text-muted-foreground hover:text-primary transition-colors">
             <Shield className="w-4 h-4" />
           </Link>
@@ -76,7 +89,13 @@ const Index = () => {
         {tabs.map(t => (
           <button
             key={t.id}
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => {
+              if ((t.id === 'wallet' || t.id === 'referrals') && !auth.isLoggedIn) {
+                setShowAuth(true);
+                return;
+              }
+              setActiveTab(t.id);
+            }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-display transition-colors ${activeTab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
           >
             {t.icon} {t.label}
