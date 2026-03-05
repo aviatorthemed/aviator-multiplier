@@ -48,10 +48,13 @@ function generateCrashPoint(): number {
     return +(Math.random() * 140 + 10).toFixed(2);
   }
   const r = Math.random();
-  if (r < 0.05) return +(Math.random() * 60 + 5).toFixed(2);
-  if (r < 0.15) return +(Math.random() * 10 + 2).toFixed(2);
-  if (r < 0.45) return +(Math.random() * 2 + 1.3).toFixed(2);
-  return +(Math.random() * 0.6 + 1.0).toFixed(2);
+  if (r < 0.04) return +(Math.random() * 60 + 5).toFixed(2);   // 4% → 5x-65x
+  if (r < 0.10) return +(Math.random() * 2 + 8).toFixed(2);    // 6% → 8x-10x
+  if (r < 0.18) return +(Math.random() * 2 + 6).toFixed(2);    // 8% → 6x-8x
+  if (r < 0.30) return +(Math.random() * 3 + 3).toFixed(2);    // 12% → 3x-6x
+  if (r < 0.50) return +(Math.random() * 1 + 2).toFixed(2);    // 20% → 2x-3x
+  if (r < 0.72) return +(Math.random() * 0.7 + 1.3).toFixed(2); // 22% → 1.3x-2x
+  return +(Math.random() * 0.3 + 1.0).toFixed(2);               // 28% → 1.0x-1.3x
 }
 
 function generateFakeBets(): Bet[] {
