@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      current_round: {
+        Row: {
+          crash_point: number
+          id: number
+          phase: string
+          phase_started_at: string
+          round_number: number
+        }
+        Insert: {
+          crash_point?: number
+          id?: number
+          phase?: string
+          phase_started_at?: string
+          round_number?: number
+        }
+        Update: {
+          crash_point?: number
+          id?: number
+          phase?: string
+          phase_started_at?: string
+          round_number?: number
+        }
+        Relationships: []
+      }
       game_rounds: {
         Row: {
           crash_multiplier: number
