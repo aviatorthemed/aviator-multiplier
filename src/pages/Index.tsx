@@ -113,7 +113,7 @@ const Index = () => {
           {/* Main content */}
           <div className="container max-w-6xl mx-auto p-4">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 space-y-4">
+              <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
                 <MultiplierDisplay
                   phase={phase}
                   currentMultiplier={currentMultiplier}
@@ -122,7 +122,7 @@ const Index = () => {
                 />
                 <LiveBets bets={bets} />
               </div>
-              <div>
+              <div className="order-1 lg:order-2">
                 <BetPanel
                   phase={phase}
                   balance={effectiveBalance}
