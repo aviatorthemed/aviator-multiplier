@@ -1,3 +1,4 @@
+// Game engine v2 - server-synchronized
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
