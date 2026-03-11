@@ -66,6 +66,20 @@ export function useAuth() {
   useEffect(() => { saveUsers(users); }, [users]);
   useEffect(() => { savePendingTransactions(pendingTransactions); }, [pendingTransactions]);
 
+  // Listen for cross-tab storage changes
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'aviator_pending_transactions') {
+        setPendingTransactions(loadPendingTransactions());
+      }
+      if (e.key === 'aviator_users') {
+        setUsers(loadUsers());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const updateUser = useCallback((userId: string, updater: (u: User) => User) => {
     setUsers(prev => {
       const user = prev[userId];
