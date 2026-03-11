@@ -42,7 +42,7 @@ const AdminDashboard = () => {
           <Plane className="w-6 h-6 text-primary" />
           <h1 className="font-display text-lg font-bold text-primary">AVIATOR</h1>
           <span className="bg-game-danger/20 text-game-danger text-xs font-display px-2 py-0.5 rounded flex items-center gap-1">
-            <Shield className="w-3 h-3" /> ADMIN
+            <Shield className="w-3 h-3" /> SYSTEM
           </span>
         </div>
         <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground">
