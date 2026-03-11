@@ -26,6 +26,21 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Check if this crash_multiplier was already saved in the last 10 seconds (dedup)
+    const { data: existing } = await supabase
+      .from("game_rounds")
+      .select("id")
+      .eq("crash_multiplier", crash_multiplier)
+      .gte("created_at", new Date(Date.now() - 10000).toISOString())
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return new Response(
+        JSON.stringify({ round: existing[0], deduplicated: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data, error } = await supabase
       .from("game_rounds")
       .insert({ crash_multiplier })
