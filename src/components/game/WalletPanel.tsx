@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowDownToLine, ArrowUpFromLine, Smartphone, Building } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Smartphone, Copy, Check } from 'lucide-react';
 
 interface WalletPanelProps {
   balance: number;
@@ -12,11 +12,18 @@ interface WalletPanelProps {
 const WalletPanel = ({ balance, onDeposit, onWithdraw }: WalletPanelProps) => {
   const [tab, setTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState('mpesa');
+  const [method] = useState('mpesa');
   const [account, setAccount] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const quickAmounts = [100, 500, 1000, 5000];
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+  };
 
   const handleDeposit = () => {
     const val = parseInt(amount);
@@ -25,7 +32,7 @@ const WalletPanel = ({ balance, onDeposit, onWithdraw }: WalletPanelProps) => {
       return;
     }
     onDeposit(val, method);
-    setMessage({ type: 'success', text: `KSh ${val.toLocaleString()} deposited via ${method.toUpperCase()}` });
+    setMessage({ type: 'success', text: `Deposit of KSh ${val.toLocaleString()} submitted. Awaiting admin confirmation.` });
     setAmount('');
   };
 
@@ -36,12 +43,12 @@ const WalletPanel = ({ balance, onDeposit, onWithdraw }: WalletPanelProps) => {
       return;
     }
     if (!account) {
-      setMessage({ type: 'error', text: 'Enter your account/phone number' });
+      setMessage({ type: 'error', text: 'Enter your M-Pesa phone number' });
       return;
     }
     const result = onWithdraw(val, method, account);
     if (result.success) {
-      setMessage({ type: 'success', text: `Withdrawal of KSh ${val.toLocaleString()} submitted` });
+      setMessage({ type: 'success', text: `Withdrawal of KSh ${val.toLocaleString()} submitted. Awaiting admin confirmation.` });
       setAmount('');
       setAccount('');
     } else {
@@ -71,21 +78,37 @@ const WalletPanel = ({ balance, onDeposit, onWithdraw }: WalletPanelProps) => {
         </button>
       </div>
 
-      {/* Payment method */}
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-colors border ${method === 'mpesa' ? 'border-game-success bg-game-success/10 text-game-success' : 'border-border text-muted-foreground'}`}
-          onClick={() => setMethod('mpesa')}
-        >
-          <Smartphone className="w-3 h-3" /> M-Pesa
-        </button>
-        <button
-          className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-colors border ${method === 'bank' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'}`}
-          onClick={() => setMethod('bank')}
-        >
-          <Building className="w-3 h-3" /> Bank
-        </button>
-      </div>
+      {tab === 'deposit' && (
+        <div className="bg-game-success/5 border border-game-success/20 rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2 text-game-success">
+            <Smartphone className="w-4 h-4" />
+            <span className="font-display text-xs tracking-widest">M-PESA PAYMENT</span>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Paybill Number:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-foreground font-bold">775093</span>
+                <button onClick={() => copyToClipboard('775093', 'paybill')} className="text-muted-foreground hover:text-primary">
+                  {copied === 'paybill' ? <Check className="w-3 h-3 text-game-success" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Account Number:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-foreground font-bold">125536011</span>
+                <button onClick={() => copyToClipboard('125536011', 'account')} className="text-muted-foreground hover:text-primary">
+                  {copied === 'account' ? <Check className="w-3 h-3 text-game-success" /> : <Copy className="w-3 h-3" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Send payment via M-Pesa, then enter the amount below. Your balance will be updated once admin confirms.
+          </p>
+        </div>
+      )}
 
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">KSh</span>
@@ -108,7 +131,7 @@ const WalletPanel = ({ balance, onDeposit, onWithdraw }: WalletPanelProps) => {
 
       {tab === 'withdraw' && (
         <Input
-          placeholder={method === 'mpesa' ? 'M-Pesa phone number' : 'Bank account number'}
+          placeholder="M-Pesa phone number"
           value={account}
           onChange={e => setAccount(e.target.value)}
           className="bg-secondary border-border h-12"

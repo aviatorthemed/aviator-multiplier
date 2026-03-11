@@ -61,12 +61,18 @@ const BetPanel = ({ phase, balance, playerBet, currentMultiplier, onPlaceBet, on
         </div>
 
         {phase === 'countdown' && !playerBet && (
-          <Button
-            onClick={handlePlaceBet}
-            className="w-full h-14 text-lg font-display font-bold bg-game-success text-game-success-foreground hover:opacity-90"
-          >
-            BET KSh {parseInt(betAmount || '0').toLocaleString()}
-          </Button>
+          <>
+            {balance <= 0 && (
+              <p className="text-game-danger text-xs text-center">Deposit funds to your wallet before placing a bet.</p>
+            )}
+            <Button
+              onClick={handlePlaceBet}
+              disabled={balance <= 0 || parseInt(betAmount || '0') > balance}
+              className="w-full h-14 text-lg font-display font-bold bg-game-success text-game-success-foreground hover:opacity-90 disabled:opacity-40"
+            >
+              BET KSh {parseInt(betAmount || '0').toLocaleString()}
+            </Button>
+          </>
         )}
 
         {phase === 'flying' && playerBet && !playerBet.cashedOut && (
