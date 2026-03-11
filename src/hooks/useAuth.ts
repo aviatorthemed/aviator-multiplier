@@ -7,8 +7,8 @@ export interface User {
   balance: number;
   referralCode: string;
   referredBy: string | null;
-  referrals: string[]; // usernames of referred users
-  referralDeposits: number; // count of referred users who deposited
+  referrals: string[];
+  referralDeposits: number;
   referralBonus: number;
   deposits: Transaction[];
   withdrawals: Transaction[];
@@ -19,8 +19,10 @@ export interface Transaction {
   amount: number;
   type: 'deposit' | 'withdrawal';
   method: string;
+  account?: string;
   status: 'pending' | 'completed' | 'failed';
   timestamp: Date;
+  username?: string;
 }
 
 function generateReferralCode(): string {
@@ -42,15 +44,27 @@ function loadSession(): string | null {
   return localStorage.getItem('aviator_session');
 }
 
+// Pending transactions stored separately for admin
+function loadPendingTransactions(): Transaction[] {
+  try {
+    const data = localStorage.getItem('aviator_pending_transactions');
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+}
+
+function savePendingTransactions(txs: Transaction[]) {
+  localStorage.setItem('aviator_pending_transactions', JSON.stringify(txs));
+}
+
 export function useAuth() {
   const [users, setUsers] = useState<Record<string, User>>(loadUsers);
   const [currentUserId, setCurrentUserId] = useState<string | null>(loadSession);
+  const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>(loadPendingTransactions);
 
   const currentUser = currentUserId ? users[currentUserId] ?? null : null;
 
-  useEffect(() => {
-    saveUsers(users);
-  }, [users]);
+  useEffect(() => { saveUsers(users); }, [users]);
+  useEffect(() => { savePendingTransactions(pendingTransactions); }, [pendingTransactions]);
 
   const updateUser = useCallback((userId: string, updater: (u: User) => User) => {
     setUsers(prev => {
@@ -74,33 +88,20 @@ export function useAuth() {
     }
 
     const newUser: User = {
-      id,
-      username,
-      phone,
-      balance: 0,
+      id, username, phone, balance: 0,
       referralCode: generateReferralCode(),
-      referredBy: referredBy,
-      referrals: [],
-      referralDeposits: 0,
-      referralBonus: 0,
-      deposits: [],
-      withdrawals: [],
+      referredBy, referrals: [], referralDeposits: 0, referralBonus: 0,
+      deposits: [], withdrawals: [],
     };
 
     const updated = { ...users, [id]: newUser };
-
-    // Add to referrer's referrals list
     if (referredBy && updated[referredBy]) {
-      updated[referredBy] = {
-        ...updated[referredBy],
-        referrals: [...updated[referredBy].referrals, username],
-      };
+      updated[referredBy] = { ...updated[referredBy], referrals: [...updated[referredBy].referrals, username] };
     }
 
     setUsers(updated);
     setCurrentUserId(id);
     localStorage.setItem('aviator_session', id);
-    // Store password simply (prototype only)
     localStorage.setItem(`aviator_pw_${id}`, password);
     return { success: true };
   }, [users]);
@@ -120,82 +121,103 @@ export function useAuth() {
     localStorage.removeItem('aviator_session');
   }, []);
 
+  // Deposit: creates pending transaction, does NOT add to balance
   const deposit = useCallback((amount: number, method: string) => {
     if (!currentUserId || amount <= 0) return;
     const tx: Transaction = {
       id: `dep-${Date.now()}`,
-      amount,
-      type: 'deposit',
-      method,
-      status: 'completed',
+      amount, type: 'deposit', method,
+      status: 'pending',
       timestamp: new Date(),
+      username: currentUser?.username,
     };
-    updateUser(currentUserId, u => {
-      const updated = {
-        ...u,
-        balance: u.balance + amount,
-        deposits: [tx, ...u.deposits],
-      };
-      return updated;
-    });
+    updateUser(currentUserId, u => ({ ...u, deposits: [tx, ...u.deposits] }));
+    setPendingTransactions(prev => [tx, ...prev]);
+  }, [currentUserId, currentUser, updateUser]);
 
-    // Check referral bonus for referrer
-    setUsers(prev => {
-      const user = prev[currentUserId];
-      if (!user?.referredBy) return prev;
-      const referrer = prev[user.referredBy];
-      if (!referrer) return prev;
-
-      // Check if this is the user's first deposit
-      const userDeposits = user.deposits.length; // 0 means this is their first
-      if (userDeposits > 0) return prev; // Already deposited before
-
-      const newDepositCount = referrer.referralDeposits + 1;
-      const bonusEarned = newDepositCount % 10 === 0 ? 100 : 0;
-
-      return {
-        ...prev,
-        [user.referredBy]: {
-          ...referrer,
-          referralDeposits: newDepositCount,
-          referralBonus: referrer.referralBonus + bonusEarned,
-          balance: referrer.balance + bonusEarned,
-        },
-      };
-    });
-  }, [currentUserId, updateUser]);
-
+  // Withdraw: creates pending transaction, deducts balance immediately to prevent overspend
   const withdraw = useCallback((amount: number, method: string, account: string) => {
     if (!currentUserId || !currentUser || amount <= 0 || amount > currentUser.balance) return { success: false, error: 'Insufficient balance' };
     const tx: Transaction = {
       id: `wd-${Date.now()}`,
-      amount,
-      type: 'withdrawal',
-      method,
+      amount, type: 'withdrawal', method, account,
       status: 'pending',
       timestamp: new Date(),
+      username: currentUser.username,
     };
-    updateUser(currentUserId, u => ({
-      ...u,
-      balance: u.balance - amount,
-      withdrawals: [tx, ...u.withdrawals],
-    }));
+    updateUser(currentUserId, u => ({ ...u, balance: u.balance - amount, withdrawals: [tx, ...u.withdrawals] }));
+    setPendingTransactions(prev => [tx, ...prev]);
     return { success: true };
   }, [currentUserId, currentUser, updateUser]);
+
+  // Admin: approve a transaction
+  const approveTransaction = useCallback((txId: string) => {
+    const tx = pendingTransactions.find(t => t.id === txId);
+    if (!tx) return;
+    const userId = tx.username?.toLowerCase();
+    if (!userId) return;
+
+    if (tx.type === 'deposit') {
+      // Add amount to user balance
+      updateUser(userId, u => ({
+        ...u,
+        balance: u.balance + tx.amount,
+        deposits: u.deposits.map(d => d.id === txId ? { ...d, status: 'completed' as const } : d),
+      }));
+    } else {
+      // Withdrawal already deducted, just mark completed
+      updateUser(userId, u => ({
+        ...u,
+        withdrawals: u.withdrawals.map(w => w.id === txId ? { ...w, status: 'completed' as const } : w),
+      }));
+    }
+
+    setPendingTransactions(prev => prev.filter(t => t.id !== txId));
+  }, [pendingTransactions, updateUser]);
+
+  // Admin: reject a transaction
+  const rejectTransaction = useCallback((txId: string) => {
+    const tx = pendingTransactions.find(t => t.id === txId);
+    if (!tx) return;
+    const userId = tx.username?.toLowerCase();
+    if (!userId) return;
+
+    if (tx.type === 'withdrawal') {
+      // Refund the balance
+      updateUser(userId, u => ({
+        ...u,
+        balance: u.balance + tx.amount,
+        withdrawals: u.withdrawals.map(w => w.id === txId ? { ...w, status: 'failed' as const } : w),
+      }));
+    } else {
+      updateUser(userId, u => ({
+        ...u,
+        deposits: u.deposits.map(d => d.id === txId ? { ...d, status: 'failed' as const } : d),
+      }));
+    }
+
+    setPendingTransactions(prev => prev.filter(t => t.id !== txId));
+  }, [pendingTransactions, updateUser]);
 
   const updateBalance = useCallback((newBalance: number) => {
     if (!currentUserId) return;
     updateUser(currentUserId, u => ({ ...u, balance: newBalance }));
   }, [currentUserId, updateUser]);
 
+  // Refresh pending transactions from localStorage (for admin page)
+  const refreshPending = useCallback(() => {
+    setPendingTransactions(loadPendingTransactions());
+    setUsers(loadUsers());
+  }, []);
+
   return {
     currentUser,
     isLoggedIn: !!currentUser,
-    signup,
-    login,
-    logout,
-    deposit,
-    withdraw,
-    updateBalance,
+    signup, login, logout,
+    deposit, withdraw, updateBalance,
+    pendingTransactions,
+    approveTransaction,
+    rejectTransaction,
+    refreshPending,
   };
 }
